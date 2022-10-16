@@ -14,48 +14,38 @@ struct ContentView: View {
     var body: some View {
         MainAndSideView(
             mainView: {
-                ZStack {
-                    Color.red
-                        .ignoresSafeArea()
-                    
-                    VStack {
+                VStack {
+                    Spacer()
+                    HStack {
                         Spacer()
-                        HStack {
-                            Spacer()
-                            Button("Main 1") {
-                                isOpen.toggle()
-                            }
-                            Spacer()
+                        Button("Main 1") {
+                            isOpen.toggle()
                         }
                         Spacer()
                     }
+                    Spacer()
                 }
+                .background(Color.red.ignoresSafeArea())
             },
             sideView: {
-                ZStack {
-                    Color.blue
-                        .ignoresSafeArea()
-
-                    ScrollView {
-                        HStack {
-                            ForEach(1..<3) { index in
-                                Text("\(index)")
-                            }
-                            Spacer()
-                            VStack {
-                                Spacer()
-                                ForEach(1..<101) { index in
-                                    Text("\(index)")
-                                }
-                                Spacer()
-                            }
-                            Spacer()
-                        }
+                HStack(alignment: .top) {
+                    ForEach(1..<3) { index in
+                        Text("\(index)")
                     }
+                    Spacer()
+                    VStack {
+                        Spacer()
+                        ForEach(1..<101) { index in
+                            Text("\(index)")
+                        }
+                        Spacer()
+                    }
+                    Spacer()
                 }
                 .frame(width: 300)
+                .background(Color.blue.ignoresSafeArea())
             },
-            isSideMenuOpen: $isOpen
+            isSideViewOpen: $isOpen
         )
     }
 }
@@ -75,96 +65,105 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
     @ViewBuilder let mainView: (() -> MainContent)
     @ViewBuilder let sideView: (() -> SideContent)
     
-    @State var width: CGFloat = 0
-    @State var offset: CGFloat = 0
-    @Binding var isSideMenuOpen: Bool
-    
-    private var dimLevel: Double {
-        let maxDim: Double = 0.5
-        let slideOutPercentage = (-offset)/width
-        return maxDim - slideOutPercentage * maxDim
-    }
+    @State var sideViewWidth: CGFloat = 0
+    @State var sideViewOffset: CGFloat = 0
+    @State var isDragging: Bool = false
+    @Binding var isSideViewOpen: Bool
     
     var body: some View {
         GeometryReader { geometryProxy in
-            ZStack(alignment: .leading) {
-                
-                mainView()
-                
-                Color.black.opacity(dimLevel)
-                    .ignoresSafeArea()
-                
-                sideView()
-                    .readSize { size in
-                        width = size.width
-                        offset = -size.width - geometryProxy.safeAreaInsets.leading
-                    }
-                    .offset(x: calculateOffset(geometryProxy))
-                    .animation(isDragging ? nil : .easeInOut, value: isSideMenuOpen)
-
-            }
-            .gesture(dragGesture(leadingSafeAreaInset: geometryProxy.safeAreaInsets.leading))
+            mainView()
+                .overlay(dimmingView(geometryProxy), alignment: .topLeading)
+                .overlay(sideView(geometryProxy), alignment: .topLeading)
+                .gesture(dragGesture(geometryProxy))
         }
+    }
+    
+    // MARK: - Convenience
+    
+    private static var openedOffset: CGFloat { 0 }
+    
+    private func calculateClosedOffset(_ geometryProxy: GeometryProxy) -> CGFloat {
+        -sideViewWidth - geometryProxy.safeAreaInsets.leading
     }
     
     private func calculateOffset(_ geometryProxy: GeometryProxy) -> CGFloat {
         if isDragging {
-            return offset
+            return sideViewOffset
         } else {
-            return isSideMenuOpen ? 0 : (-width - geometryProxy.safeAreaInsets.leading)
+            return isSideViewOpen ? Self.openedOffset : calculateClosedOffset(geometryProxy)
         }
     }
     
-    private func calculateClosedOffset(_ geometryProxy: GeometryProxy) -> CGFloat {
-        -width - geometryProxy.safeAreaInsets.leading
+    private func calculateDimLevel(_ geometryProxy: GeometryProxy) -> Double {
+        let maxDim: Double = 0.5
+        let slideOutPercentage = (-calculateOffset(geometryProxy))/sideViewWidth
+        return maxDim - slideOutPercentage * maxDim
+    }
+    
+    private func getAnimation() -> Animation? {
+        isDragging ? nil : .easeInOut
+    }
+    
+    // MARK: - Views
+    
+    private func sideView(_ geometryProxy: GeometryProxy) -> some View {
+        sideView()
+            .offset(x: calculateOffset(geometryProxy))
+            .animation(getAnimation(), value: isSideViewOpen)
+            .readSize { size in
+                sideViewWidth = size.width
+                sideViewOffset = calculateClosedOffset(geometryProxy)
+            }
+    }
+    
+    private func dimmingView(_ geometryProxy: GeometryProxy) -> some View {
+        Color.black
+            .opacity(calculateDimLevel(geometryProxy))
+            .animation(getAnimation())
+            .ignoresSafeArea()
+            .onTapGesture { isSideViewOpen = false }
     }
     
     // MARK: - Drag Gesture
     
     @State var previousTranslation: CGSize = .zero
-    @State var isDragging: Bool = false
     
-    private func dragGesture(leadingSafeAreaInset: CGFloat) -> some Gesture {
+    private func dragGesture(_ geometryProxy: GeometryProxy) -> some Gesture {
         DragGesture(minimumDistance: 10)
             .onChanged { value in
+                
+                // If have just started dragging, set offset according to open state
+                if !isDragging {
+                    sideViewOffset = calculateOffset(geometryProxy)
+                }
                 isDragging = true
+                
+                // Calculate delta that will be applied to offset
                 let translationDelta = value.translation - previousTranslation
                 previousTranslation = value.translation
+                
                 if translationDelta.width.magnitude > translationDelta.height.magnitude {
                     withAnimation {
-                        let newOffset = offset + translationDelta.width
-                        offset = newOffset.clamped(to: -width...leadingSafeAreaInset)
+                        let newOffset = sideViewOffset + translationDelta.width
+                        sideViewOffset = newOffset.clamped(to: calculateClosedOffset(geometryProxy)...0)
                     }
                 }
             }
             .onEnded { value in
-                isDragging = false
                 previousTranslation = .zero
+                let closedOffset = calculateClosedOffset(geometryProxy)
                 withAnimation {
-                    // TODO: add velocity into the mix as well.
-                    if offset < (-width / 2) { // if is open less than half-way
-                        self.offset = -width - leadingSafeAreaInset // fully closed side menu
+                    let isOpenLessThanHalfway = sideViewOffset < (closedOffset / 2)
+                    if isOpenLessThanHalfway {
+                        self.sideViewOffset = closedOffset
+                        isSideViewOpen = false
                     } else {
-                        self.offset = leadingSafeAreaInset // fully open side menu
+                        self.sideViewOffset = Self.openedOffset
+                        isSideViewOpen = true
                     }
+                    isDragging = false
                 }
             }
     }
-}
-
-extension View {
-    func readSize(onChange: @escaping (CGSize) -> Void) -> some View {
-        background(
-            GeometryReader { geometryProxy in
-                Color.clear
-                    .preference(key: SizePreferenceKey.self, value: geometryProxy.size)
-            }
-        )
-        .onPreferenceChange(SizePreferenceKey.self, perform: onChange)
-    }
-}
-
-private struct SizePreferenceKey: PreferenceKey {
-    static var defaultValue: CGSize = .zero
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {}
 }
