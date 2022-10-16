@@ -80,7 +80,7 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
         DragGesture(minimumDistance: 10)
             .onChanged { value in
                 
-                // If we have only just started dragging, then set the offset according to open state
+                // If we have only just started dragging, then set the offset according to opened/closed state
                 if !isDragging {
                     sideViewOffset = calculateOffset(geometryProxy)
                 }
