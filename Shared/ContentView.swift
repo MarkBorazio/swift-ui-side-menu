@@ -12,43 +12,61 @@ struct ContentView: View {
     @State var isOpen: Bool = false
     
     var body: some View {
-        MainAndSideView(
-            mainView: {
+        mainView
+            .withSideView(isOpen: $isOpen) {
+                sideView
+            }
+    }
+    
+    private var mainView: some View {
+        VStack {
+            Text("Top")
+            Spacer()
+            HStack {
+                Text("Left")
+                Spacer()
+                Button("Main 1") {
+                    isOpen.toggle()
+                }
+                Spacer()
+                Text("Right")
+            }
+            Spacer()
+            Text("Bottom")
+        }
+        .background(Color.red.ignoresSafeArea())
+    }
+    
+    private var sideView: some View {
+        ScrollView {
+            HStack(alignment: .top) {
                 VStack {
                     Spacer()
-                    HStack {
-                        Spacer()
-                        Button("Main 1") {
-                            isOpen.toggle()
-                        }
-                        Spacer()
+                    ForEach(1..<101) { index in
+                        Text("\(index)")
                     }
                     Spacer()
                 }
-                .background(Color.red.ignoresSafeArea())
-            },
-            sideView: {
-                ScrollView {
-                    HStack(alignment: .top) {
-                        ForEach(1..<3) { index in
-                            Text("\(index)")
-                        }
-                        Spacer()
-                        VStack {
-                            Spacer()
-                            ForEach(1..<101) { index in
-                                Text("\(index)")
-                            }
-                            Spacer()
-                        }
-                        Spacer()
+                Spacer()
+                VStack {
+                    Spacer()
+                    ForEach(1..<101) { index in
+                        Text("\(index)")
                     }
+                    Spacer()
                 }
-                .frame(width: 300)
-                .background(Color.blue.ignoresSafeArea())
-            },
-            isSideViewOpen: $isOpen
-        )
+                Spacer()
+                VStack {
+                    Spacer()
+                    ForEach(1..<101) { index in
+                        Text("\(index)")
+                    }
+                    Spacer()
+                }
+            }
+        }
+        .frame(width: 300)
+        .background(Color.blue.ignoresSafeArea())
     }
 }
 

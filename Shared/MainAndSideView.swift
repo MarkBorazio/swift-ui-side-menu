@@ -7,23 +7,54 @@
 
 import SwiftUI
 
+extension View {
+    
+    func withSideView<SideContent: View>(isOpen: Binding<Bool>, @ViewBuilder sideView: (() -> SideContent)) -> some View {
+        MainAndSideView(
+            mainView: self,
+            sideView: sideView(),
+            isSideViewOpen: isOpen
+        )
+    }
+}
+
 struct MainAndSideView<MainContent: View, SideContent: View>: View {
     
-    @ViewBuilder let mainView: (() -> MainContent)
-    @ViewBuilder let sideView: (() -> SideContent)
+    let mainView: MainContent
+    let sideView: SideContent
     
     @State var sideViewWidth: CGFloat = 0
     @State var sideViewOffset: CGFloat = 0
     @State var isDragging: Bool = false
     @Binding var isSideViewOpen: Bool
     
+    // MARK: - Views
+    
     var body: some View {
         GeometryReader { geometryProxy in
-            mainView()
+            mainView
                 .overlay(dimmingView(geometryProxy), alignment: .topLeading)
                 .overlay(sideView(geometryProxy), alignment: .topLeading)
                 .gesture(dragGesture(geometryProxy))
         }
+    }
+    
+    private func sideView(_ geometryProxy: GeometryProxy) -> some View {
+        sideView
+            .offset(x: calculateOffset(geometryProxy))
+            .animation(getAnimation(), value: isSideViewOpen)
+            .readSize { size in
+                sideViewWidth = size.width
+                sideViewOffset = calculateClosedOffset(geometryProxy)
+            }
+    }
+    
+    private func dimmingView(_ geometryProxy: GeometryProxy) -> some View {
+        Color.black
+            .opacity(calculateDimLevel(geometryProxy))
+            .animation(getAnimation())
+            .ignoresSafeArea()
+            .onTapGesture { isSideViewOpen = false }
     }
     
     // MARK: - Convenience
@@ -50,26 +81,6 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
     
     private func getAnimation() -> Animation? {
         isDragging ? nil : .easeInOut
-    }
-    
-    // MARK: - Views
-    
-    private func sideView(_ geometryProxy: GeometryProxy) -> some View {
-        sideView()
-            .offset(x: calculateOffset(geometryProxy))
-            .animation(getAnimation(), value: isSideViewOpen)
-            .readSize { size in
-                sideViewWidth = size.width
-                sideViewOffset = calculateClosedOffset(geometryProxy)
-            }
-    }
-    
-    private func dimmingView(_ geometryProxy: GeometryProxy) -> some View {
-        Color.black
-            .opacity(calculateDimLevel(geometryProxy))
-            .animation(getAnimation())
-            .ignoresSafeArea()
-            .onTapGesture { isSideViewOpen = false }
     }
     
     // MARK: - Drag Gesture
@@ -112,29 +123,5 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
                     isDragging = false
                 }
             }
-    }
-}
-
-
-struct MainAndSideView_Previews: PreviewProvider {
-    @State static var isSideViewOpen = true
-    static var previews: some View {
-        MainAndSideView(
-            mainView: {
-                VStack {
-                    Spacer()
-                    Button("Open Menu") {
-                        isSideViewOpen.toggle()
-                    }
-                    .background(Color.yellow.ignoresSafeArea())
-                    Spacer()
-                }
-            },
-            sideView: {
-                Text("Side Menu")
-                    .background(Color.red.ignoresSafeArea())
-            },
-            isSideViewOpen: $isSideViewOpen
-        )
     }
 }
