@@ -38,7 +38,7 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
             .gesture(dragGesture)
             .readSafeAreaInsets { safeAreaInsets in
                 trailingSafeAreaInset = safeAreaInsets.trailing
-                isSideViewOpen = false // Dont to fix
+                isSideViewOpen = false // If safe area insets change then we want to close view, otherwise it may be not closed all the way.
             }
     }
     
@@ -86,13 +86,30 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
         isDragging ? nil : .easeInOut
     }
     
+    private func resetToClosed() {
+        self.sideViewOffset = closedOffset
+        isSideViewOpen = false
+    }
+    
+    private func resetToOpen() {
+        self.sideViewOffset = Self.openedOffset
+        isSideViewOpen = true
+    }
+    
+    // If side view is closed, make sure that it can only be opened from the left edge.
+    private func isIntendedGesture(_ startLocation: CGPoint) -> Bool {
+        isSideViewOpen || startLocation.x < 30
+    }
+    
     // MARK: - Drag Gesture
     
     @State var previousTranslation: CGSize = .zero
     
     private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 10)
+        DragGesture(minimumDistance: 10, coordinateSpace: .local)
             .onChanged { value in
+                
+                guard isIntendedGesture(value.startLocation) else { return }
                 
                 // Calculate delta that will be applied to offset
                 let translationDelta = value.translation - previousTranslation
@@ -114,16 +131,29 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
             .onEnded { value in
                 previousTranslation = .zero
                 withAnimation {
-                    let isOpenLessThanHalfway = sideViewOffset < (closedOffset / 2)
-                    if isOpenLessThanHalfway {
-                        self.sideViewOffset = closedOffset
-                        isSideViewOpen = false
+                    let translationDelta = value.translation - previousTranslation
+                    let wasDraggingFast = translationDelta.width.magnitude > 100
+                    let wasIntendedGesture = isIntendedGesture(value.startLocation)
+                    
+                    if wasDraggingFast && wasIntendedGesture {
+                        if translationDelta.width >= 0 { // Going right
+                            resetToOpen()
+                        } else { // Going left
+                            resetToClosed()
+                        }
                     } else {
-                        self.sideViewOffset = Self.openedOffset
-                        isSideViewOpen = true
+                        let isOpenLessThanHalfway = sideViewOffset < (closedOffset / 2)
+                        if isOpenLessThanHalfway {
+                            resetToClosed()
+                        } else {
+                            resetToOpen()
+                        }
                     }
                     isDragging = false
                 }
             }
+        
+
     }
+    
 }
