@@ -24,6 +24,13 @@ extension Comparable {
     }
 }
 
+// MARK: - Read Size
+
+private struct SizePreferenceKey: PreferenceKey {
+    static var defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {}
+}
+
 extension View {
     func readSize(onChange: @escaping (CGSize) -> Void) -> some View {
         background(
@@ -36,7 +43,21 @@ extension View {
     }
 }
 
-private struct SizePreferenceKey: PreferenceKey {
-    static var defaultValue: CGSize = .zero
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {}
+// MARK: - Read Safe Area Insets
+
+private struct SafeAreaInsetsPreferenceKey: PreferenceKey {
+    static var defaultValue: EdgeInsets = EdgeInsets()
+    static func reduce(value: inout EdgeInsets, nextValue: () -> EdgeInsets) {}
+}
+
+extension View {
+    func readSafeAreaInsets(onChange: @escaping (EdgeInsets) -> Void) -> some View {
+        background(
+            GeometryReader { geometryProxy in
+                Color.clear
+                    .preference(key: SafeAreaInsetsPreferenceKey.self, value: geometryProxy.safeAreaInsets)
+            }
+        )
+        .onPreferenceChange(SafeAreaInsetsPreferenceKey.self, perform: onChange)
+    }
 }

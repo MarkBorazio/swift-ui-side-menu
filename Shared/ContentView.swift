@@ -20,19 +20,15 @@ struct ContentView: View {
     
     private var mainView: some View {
         VStack {
-            Text("Top")
             Spacer()
             HStack {
-                Text("Left")
                 Spacer()
                 Button("Main 1") {
                     isOpen.toggle()
                 }
                 Spacer()
-                Text("Right")
             }
             Spacer()
-            Text("Bottom")
         }
         .background(Color.red.ignoresSafeArea())
     }
