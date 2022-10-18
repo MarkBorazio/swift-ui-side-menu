@@ -38,7 +38,7 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
             .gesture(dragGesture)
             .readSafeAreaInsets { safeAreaInsets in
                 trailingSafeAreaInset = safeAreaInsets.trailing
-                isSideViewOpen = false // If safe area insets change then we want to close view, otherwise it may be not closed all the way.
+                resetToClosed() // If safe area insets change then we want to close view, otherwise it may be not closed all the way.
             }
     }
     
@@ -48,7 +48,7 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
             .animation(animation, value: isSideViewOpen)
             .readSize { size in
                 sideViewWidth = size.width
-                sideViewOffset = closedOffset
+                resetToClosed()
             }
     }
     
@@ -57,7 +57,7 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
             .opacity(dimLevel)
             .animation(animation)
             .ignoresSafeArea()
-            .onTapGesture { isSideViewOpen = false }
+            .onTapGesture { resetToClosed() }
     }
     
     // MARK: - Convenience
@@ -87,13 +87,21 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
     }
     
     private func resetToClosed() {
-        self.sideViewOffset = closedOffset
-        isSideViewOpen = false
+        withAnimation {
+            self.sideViewOffset = closedOffset
+            isSideViewOpen = false
+            isDragging = false
+            previousTranslation = .zero
+        }
     }
     
     private func resetToOpen() {
-        self.sideViewOffset = Self.openedOffset
-        isSideViewOpen = true
+        withAnimation {
+            self.sideViewOffset = Self.openedOffset
+            isSideViewOpen = true
+            isDragging = false
+            previousTranslation = .zero
+        }
     }
     
     // If side view is closed, make sure that it can only be opened from the left edge.
@@ -130,26 +138,23 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
             }
             .onEnded { value in
                 previousTranslation = .zero
-                withAnimation {
-                    let translationDelta = value.translation - previousTranslation
-                    let wasDraggingFast = translationDelta.width.magnitude > 100
-                    let wasIntendedGesture = isIntendedGesture(value.startLocation)
-                    
-                    if wasDraggingFast && wasIntendedGesture {
-                        if translationDelta.width >= 0 { // Going right
-                            resetToOpen()
-                        } else { // Going left
-                            resetToClosed()
-                        }
-                    } else {
-                        let isOpenLessThanHalfway = sideViewOffset < (closedOffset / 2)
-                        if isOpenLessThanHalfway {
-                            resetToClosed()
-                        } else {
-                            resetToOpen()
-                        }
+                let translationDelta = value.translation - previousTranslation
+                let wasDraggingFast = translationDelta.width.magnitude > 100
+                let wasIntendedGesture = isIntendedGesture(value.startLocation)
+                
+                if wasDraggingFast && wasIntendedGesture {
+                    if translationDelta.width >= 0 { // Going right
+                        resetToOpen()
+                    } else { // Going left
+                        resetToClosed()
                     }
-                    isDragging = false
+                } else {
+                    let isOpenLessThanHalfway = sideViewOffset < (closedOffset / 2)
+                    if isOpenLessThanHalfway {
+                        resetToClosed()
+                    } else {
+                        resetToOpen()
+                    }
                 }
             }
         
