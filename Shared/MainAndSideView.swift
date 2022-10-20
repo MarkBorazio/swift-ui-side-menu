@@ -45,7 +45,7 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
     private var sideViewOverlay: some View {
         sideView
             .offset(x: offset)
-            .animation(animation, value: isSideViewOpen)
+            .animation(Self.offsetAnimation, value: isSideViewOpen)
             .readSize { size in
                 sideViewWidth = size.width
                 resetToClosed()
@@ -55,12 +55,14 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
     private var dimmingView: some View {
         Color.black
             .opacity(dimLevel)
-            .animation(animation)
+            .animation(Self.offsetAnimation)
             .ignoresSafeArea()
             .onTapGesture { resetToClosed() }
     }
     
     // MARK: - Convenience
+    
+    private static var offsetAnimation: Animation { .easeInOut }
     
     private static var openedOffset: CGFloat { 0 }
     
@@ -80,10 +82,6 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
         let maxDim: Double = 0.5
         let slideOutPercentage = offset/sideViewWidth
         return maxDim * (1 + slideOutPercentage)
-    }
-    
-    private var animation: Animation? {
-        isDragging ? nil : .easeInOut
     }
     
     private func resetToClosed() {
@@ -130,10 +128,8 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
                     }
                     isDragging = true
                     
-                    withAnimation {
-                        let newOffset = sideViewOffset + translationDelta.width
-                        sideViewOffset = newOffset.clamped(to: closedOffset...0)
-                    }
+                    let newOffset = sideViewOffset + translationDelta.width
+                    sideViewOffset = newOffset.clamped(to: closedOffset...0)
                 }
             }
             .onEnded { value in
