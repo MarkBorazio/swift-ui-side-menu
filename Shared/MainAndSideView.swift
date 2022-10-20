@@ -36,6 +36,11 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
             .overlay(dimmingView, alignment: .topLeading)
             .overlay(sideViewOverlay, alignment: .topLeading)
             .gesture(dragGesture)
+            .onChange(of: isUpdatingDrag) { newIsUpdatingDrag in
+                if !newIsUpdatingDrag {
+                    onDragGestureEnd()
+                }
+            }
             .readSafeAreaInsets { safeAreaInsets in
                 trailingSafeAreaInset = safeAreaInsets.trailing
                 resetToClosed() // If safe area insets change then we want to close view, otherwise it may be not closed all the way.
@@ -110,9 +115,13 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
     // MARK: - Drag Gesture
     
     @State var previousTranslation: CGSize = .zero
+    @GestureState var isUpdatingDrag: Bool = false // Used purely to detect if drag cancelled (onChanged or onEnded don't get called)
     
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 10, coordinateSpace: .local)
+            .updating($isUpdatingDrag) { _, state, _ in
+                state = true
+            }
             .onChanged { value in
                 
                 guard isIntendedGesture(value.startLocation) else { return }
@@ -133,9 +142,8 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
                 }
             }
             .onEnded { value in
-                previousTranslation = .zero
                 let translationDelta = value.translation - previousTranslation
-                let wasDraggingFast = translationDelta.width.magnitude > 100
+                let wasDraggingFast = translationDelta.width.magnitude > 5
                 let wasIntendedGesture = isIntendedGesture(value.startLocation)
                 
                 if wasDraggingFast && wasIntendedGesture {
@@ -145,16 +153,17 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
                         resetToClosed()
                     }
                 } else {
-                    let isOpenLessThanHalfway = sideViewOffset < (closedOffset / 2)
-                    if isOpenLessThanHalfway {
-                        resetToClosed()
-                    } else {
-                        resetToOpen()
-                    }
+                    onDragGestureEnd()
                 }
             }
-        
-
     }
     
+    private func onDragGestureEnd() {
+        let isOpenLessThanHalfway = sideViewOffset < (closedOffset / 2)
+        if isOpenLessThanHalfway {
+            resetToClosed()
+        } else {
+            resetToOpen()
+        }
+    }
 }
