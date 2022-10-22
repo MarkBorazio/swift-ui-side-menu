@@ -36,7 +36,7 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
             .overlay(dimmingView, alignment: .topLeading)
             .overlay(sideViewOverlay, alignment: .topLeading)
             .gesture(dragGesture)
-            .onChange(of: isUpdatingDrag) { newIsUpdatingDrag in
+            .onChange(of: isDragGestureUpdating) { newIsUpdatingDrag in
                 if !newIsUpdatingDrag {
                     onDragGestureEnd()
                 }
@@ -67,7 +67,7 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
     
     // MARK: - Convenience
     
-    private static var offsetAnimation: Animation { .easeInOut }
+    private static var offsetAnimation: Animation { .easeInOut(duration: 0.3) }
     
     private static var openedOffset: CGFloat { 0 }
     
@@ -115,11 +115,11 @@ struct MainAndSideView<MainContent: View, SideContent: View>: View {
     // MARK: - Drag Gesture
     
     @State var previousTranslation: CGSize = .zero
-    @GestureState var isUpdatingDrag: Bool = false // Used purely to detect if drag cancelled (onChanged or onEnded don't get called)
+    @GestureState var isDragGestureUpdating: Bool = false // Used purely to detect if drag cancelled (onChanged or onEnded don't get called)
     
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 10, coordinateSpace: .local)
-            .updating($isUpdatingDrag) { _, state, _ in
+            .updating($isDragGestureUpdating) { _, state, _ in
                 state = true
             }
             .onChanged { value in
